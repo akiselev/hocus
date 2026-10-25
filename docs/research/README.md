@@ -170,6 +170,85 @@ would bring its own.
 - **Later:** the shared immutable image for workers, the debugger, then the copy-and-patch
   baseline if its profile trigger fires.
 
+### 4.1 Render functions and numeric kernels: AOT where types are sound, no general JIT
+
+Added 2026-10-25 after the user's question ("What about JS render functions? Will the JIT enable
+those? Or AOT compile? Doesn't have to be JIT except for heavy numeric stuff"). This is synthesis
+from the notes (`inferred` unless cited); it revises `jit.md` A4 for an opt-in subset only.
+
+JS that "renders" comes in three kinds, and each gets a different answer:
+
+| Kind | Example | What makes it fast | JIT? |
+|---|---|---|---|
+| **Component render and update code** | compiled `.svelte` create/update functions, `{#snippet}`/`{@render}` bodies, `$.template_effect` | **compile-time work in the svelters compiler**, which is already AOT: native templates (the counter goes from 36 crossings to 1), integer ids, lazy nodes, static writes resolved at compile time (`compiler-and-js.md` §3.1–3.3); plus the reactive intrinsics (D2) and interpreter inline caches | **No.** This code is short, runs mostly once, and is call- and object-heavy. quickjs-jit's tiers tied on exactly this (`svelters/docs/notes/quickjs-jit-cranelift.md` §5). The later weval-style AOT of the bundle (S2b, up to ~2×, works on iOS) is the only JIT-shaped item that helps it |
+| **Imperative drawing** | a custom widget's `draw(ctx)`, a chart, a PCB overlay | **don't run JS per frame.** A draw function is a reactive effect that records a display list; presto retains it as a layer or canvas chunk and re-runs it only when its signals change. Pan, zoom, scroll and animations are compositor properties and native tracks (`architecture.md` §5, §9.5; `compiler-and-js.md` §3.6) | **No**, once JS cost is per change, not per frame |
+| **Heavy numeric code** | geometry, hit-testing over thousands of items, plot decimation, layout solvers, signal processing | **an opt-in typed kernel subset, compiled to native code** | **Yes, but not a speculative JS JIT** (below) |
+
+**The kernel subset.** A kernel is ordinary TypeScript that also passes a stricter check:
+- **Marked explicitly:** a `"use kernel"` directive, or a `*.kernel.ts` module.
+- **Allowed types:** `number` (with `i32` and `f64` as type aliases), `boolean`, typed arrays,
+  fixed records of numbers, and other kernels.
+- **Not allowed:** closures over JS objects, dynamic properties, `any`, strings beyond constants,
+  exceptions as control flow.
+- **Always plain JS:** a kernel runs unchanged on Node, QuickJS-NG and the hocus interpreter. That
+  gives us the reference for differential tests, and a fallback everywhere.
+
+**How a kernel is compiled.**
+1. The svelters compiler (or a hocus build step) checks the subset. Code that fails the check stays
+   ordinary JS, with a diagnostic naming the construct.
+2. It lowers the kernel to a small typed IR, then to native code with **Cranelift**.
+
+Cranelift fits here, unlike for a general JS tier, for three reasons:
+- the types are sound, so there are no guards to deoptimize, and Cranelift's missing deopt/OSR
+  doesn't matter;
+- build-time compile speed doesn't matter;
+- it is Wasmtime's production backend for exactly this kind of typed code.
+
+**Calling a kernel.**
+- One type check on entry. On mismatch, the call runs the JS version instead.
+- Typed arrays are passed as `(pointer, length)` into hocus's own buffers, with no copy. Kernels
+  don't allocate on the JS heap, so they need no GC stack maps.
+
+**When the code is generated.**
+- **Release, desktop:** at build time.
+- **iOS:** at build time, because runtime codegen is forbidden there.
+- **Live-edited and HMR'd kernels** (svelters compiles in release too):
+  - desktop: compiled at load, with the same Cranelift path;
+  - iOS: interpreted.
+
+**Expected gain (`inferred`).** Close to Rust on the same loop, and above V8 on code V8 must guard.
+For scale, on a monomorphic numeric property kernel:
+
+| Engine | Speed vs stock QuickJS-NG |
+|---|---|
+| V8 | ~38× |
+| quickjs-jit | ~18× (it still guards and boxes) |
+
+(`quickjs-jit-cranelift.md` §5, props row.)
+
+**Prior art.**
+
+| Project | What it shows |
+|---|---|
+| **asm.js** (2013; http://asmjs.org/spec/latest/) | the direct precedent: valid JS everywhere, AOT-compiled by Firefox's OdinMonkey when the `"use asm"` subset validated. Superseded by Wasm for the web, but the model fits an engine we own |
+| **Numba** (an `@jit` decorator for typed numeric Python, via LLVM) | the "opt in per function" ergonomics |
+| **AssemblyScript** (a TS subset compiled to Wasm) | the type system for such a subset |
+| **Static Hermes** (`jit.md` §3.6) | the same idea applied to all code, which is why it needs sound types everywhere and is still unshipped. The kernel subset avoids that by asking for sound types only where the user opts in |
+
+**Rust is still the first answer** for first-party heavy numeric work (the cadabra and Copperfield
+kernels already are). Kernels are for numeric code that has to live in the self-editable GUI, or
+that extension authors write.
+
+**Effect on the plan.**
+- The kernel compiler doesn't depend on the interpreter's internals. It needs only the typed-array
+  layout and the call boundary.
+- It can come **before** the S2 copy-and-patch baseline, and may make S2 unnecessary for
+  cadatomic. S2 stays gated on its profiling trigger for generic JS.
+- It slots in after M2 ("runs Svelte"), as **M2k**: the subset checker in the compiler, the typed
+  IR, Cranelift AOT and load-time compilation, and differential tests of each kernel against its
+  own JS version.
+- Its benchmark is a set of numeric kernels taken from real cadatomic overlays.
+
 ## 5. Decisions for the user
 
 Each has a recommendation. D3, D4 and D8 touch decisions recorded as the user's.
@@ -186,6 +265,7 @@ Each has a recommendation. D3, D4 and D8 touch decisions recorded as the user's.
 | **D8** | Scope: no Intl or Temporal in the engine; JIT none in year one, with the copy-and-patch trigger in §2; V8 (deno_core) if V8-class speed is ever needed | **Yes** |
 | **D9** | Name and licence | **`hocus`** (free on crates.io; npm has an unrelated `hocus` and GitHub an archived `hocus-dev/hocus`). Licence: **MIT**, since the port derives from MIT QuickJS-NG and must keep its notice anyway; or undeclared like cadatomic until you decide. Alternatives: `incanto`, `praestigiae`, `alakazam` |
 | **D10** | GitHub repository | **Done** (user, 2026-10-25): `akiselev/hocus` |
+| **D11** | Render functions and numeric code (§4.1): no general JIT for component or drawing code; an opt-in typed **kernel subset** of TS compiled with Cranelift (AOT at build time, at load for live edits on desktop, interpreted on iOS), always valid JS with its JS version as the reference | **Yes.** Then two details: the marker (`"use kernel"` directive or `*.kernel.ts`; I recommend both), and whether the subset checker lives in the svelters compiler (recommended, since it already parses TS) or in hocus |
 
 ## 6. Gaps
 

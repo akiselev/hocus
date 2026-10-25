@@ -24,3 +24,4 @@ The questions, with recommendations and reasons, are in `docs/research/README.md
 | D7 | Stable Rust for the product; nightly only for Miri, sanitizers, fuzzing | yes |
 | D8 | No Intl/Temporal in the engine; no JIT in year one; V8 if V8-class speed is needed | yes |
 | D9 | Name `hocus`; licence MIT (or undeclared until decided) | hocus, MIT |
+| D11 | Render and numeric code: no general JIT; an opt-in typed kernel subset compiled with Cranelift (research README §4.1) | yes; marker `"use kernel"` and `*.kernel.ts`; checker in the svelters compiler |
