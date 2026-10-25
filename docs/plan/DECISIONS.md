@@ -7,6 +7,7 @@ who decided and when. Research and plan files explain why; they don't decide.
 
 - **The repository and its name** (user, 2026-10-25): "start a new repo: lets port quickjs to
   rust". Working name `hocus` (D9 confirms or renames).
+- **GitHub repository** (user, 2026-10-25): the user created `akiselev/hocus` (D10, done).
 
 ## Waiting on the user (2026-10-25)
 
@@ -23,4 +24,3 @@ The questions, with recommendations and reasons, are in `docs/research/README.md
 | D7 | Stable Rust for the product; nightly only for Miri, sanitizers, fuzzing | yes |
 | D8 | No Intl/Temporal in the engine; no JIT in year one; V8 if V8-class speed is needed | yes |
 | D9 | Name `hocus`; licence MIT (or undeclared until decided) | hocus, MIT |
-| D10 | Create the empty private GitHub repository `akiselev/hocus` | user action |

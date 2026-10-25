@@ -185,7 +185,7 @@ Each has a recommendation. D3, D4 and D8 touch decisions recorded as the user's.
 | **D7** | Toolchain: stable Rust 1.95+ for the product; nightly only for Miri, sanitizers and fuzzing, pinned by date | **Yes.** Tail calls through stable sibling-call optimisation with an assembly check; `become` when it stabilises |
 | **D8** | Scope: no Intl or Temporal in the engine; JIT none in year one, with the copy-and-patch trigger in §2; V8 (deno_core) if V8-class speed is ever needed | **Yes** |
 | **D9** | Name and licence | **`hocus`** (free on crates.io; npm has an unrelated `hocus` and GitHub an archived `hocus-dev/hocus`). Licence: **MIT**, since the port derives from MIT QuickJS-NG and must keep its notice anyway; or undeclared like cadatomic until you decide. Alternatives: `incanto`, `praestigiae`, `alakazam` |
-| **D10** | GitHub repository | **Create an empty private `akiselev/hocus`.** The session's GitHub integration can't create repositories (403); once it exists, this history is pushed as is |
+| **D10** | GitHub repository | **Done** (user, 2026-10-25): `akiselev/hocus` |
 
 ## 6. Gaps
 
