@@ -1,0 +1,23 @@
+# Pins for hocus. A pin moves only in its own commit; its history is the git log.
+
+[quickjs-ng]
+# Port base and differential oracle (D4).
+repo = "https://github.com/quickjs-ng/quickjs"
+sha = "7a23d8e3fedb010070ef1a03873c55500c7aa1a9"  # 2026-10-23, version string 0.17.0
+
+[test262]
+# The submodule sha QuickJS-NG pins at the commit above.
+repo = "https://github.com/tc39/test262"
+sha = "5ef1e5723be95296f36afb0386676fed0205869c"
+
+[svelte]
+version = "5.57.2"  # what svelters runs
+
+[quickjs-oxide]
+# Fork candidate under evaluation (D1, batch 1 lane oxide-bakeoff).
+repo = "https://github.com/pocket-nexus/quickjs-oxide"
+sha = "3a9ceb9664dadcb2c8128f444a6530ab796dd146"
+
+[toolchain]
+rust-version = "1.95"
+rustc = "1.97.0"
